@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Чудо Жизни</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+  body { background: #0f172a; font-family: 'Courier New', monospace; overflow: hidden; width: 100vw; height: 100vh; color: #fff; display: flex; justify-content: center; align-items: center; }
+
+  /* Основной контейнер */
+  #game-container {
+    width: 100%; height: 100%; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 1s ease;
+  }
+
+  /* Шкала здоровья */
+  .health-wrapper {
+    width: 80%; max-width: 400px; margin-bottom: 30px; text-align: center;
+  }
+  .health-label {
+    font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+  }
+  .health-bar {
+    width: 100%; height: 35px; background: rgba(255,255,255,0.1);
+    border: 3px solid #fff; border-radius: 20px; overflow: hidden;
+    position: relative; box-shadow: 0 0 20px rgba(255,255,255,0.3);
+  }
+  .health-fill {
+    width: 0%; height: 100%; background: linear-gradient(90deg, #ff4757, #ffa502, #2ed573, #00d2d3);
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 15px;
+  }
+  .health-percent {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-weight: bold; font-size: 16px; text-shadow: 1px 1px 3px #000;
+  }
+
+  /* Кнопки действий */
+  .actions {
+    display: flex; flex-direction: column; gap: 15px; width: 80%; max-width: 350px;
+  }
+  .btn {
+    padding: 18px; font-size: 20px; font-weight: bold; font-family: inherit;
+    border: 3px solid #fff; border-radius: 15px; cursor: pointer;
+    background: rgba(255,255,255,0.1); color: #fff; backdrop-filter: blur(5px);
+    transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn:active { transform: scale(0.95); }
+  .btn.done {
+    background: rgba(46, 213, 115, 0.4); border-color: #2ed573; color: #2ed573;
+    pointer-events: none; box-shadow: 0 0 20px #2ed573;
+  }
+
+  /* Анимация появления ребенка */
+  .baby-pop {
+    position: absolute; font-size: 150px; opacity: 0; transform: scale(0);
+    animation: popIn 2.5s forwards; z-index: 50; pointer-events: none;
+  }
+  @keyframes popIn {
+    0% { opacity: 0; transform: scale(0); }
+    30% { opacity: 1; transform: scale(1.2); text-shadow: 0 0 60px #fff, 0 0 100px #ffd700; }
+    100% { opacity: 0; transform: scale(3); }
+  }
+
+  /* Финальный экран */
+  #win-screen {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+    display: none; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding-bottom: 10%; z-index: 100; transition: opacity 1s ease;
+  }
+  #win-screen.active { display: flex; }
+  .win-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: -1; }
+  .final-text {
+    font-size: 32px; color: #fff; text-shadow: 2px 2px 10px #000, 0 0 30px #ffd700;
+    margin-bottom: 10px; font-weight: bold; text-align: center; line-height: 1.4; padding: 0 20px;
+  }
+  .final-sub { font-size: 22px; color: #ffd700; text-shadow: 1px 1px 5px #000; margin-bottom: 30px; }
+  .restart-btn {
+    padding: 15px 40px; font-size: 18px; font-weight: bold; font-family: inherit;
+    background: #fff; color: #000; border: none; border-radius: 8px; cursor: pointer;
+    box-shadow: 0 4px 0 #999;
+  }
+  .restart-btn:active { transform: translateY(4px); box-shadow: none; }
+
+  /* Летающие ангелы/сердечки */
+  .angel { position: absolute; font-size: 40px; animation: floatUp 4s linear infinite; pointer-events: none; z-index: 90; }
+  @keyframes floatUp {
+    0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateY(-100px) scale(1.5); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- МУЗЫКА -->
+<audio id="bgMusic" loop preload="auto">
+  <source src="music.mp3" type="audio/mpeg">
+</audio>
+
+<!-- ЭКРАН ИГРЫ -->
+<div id="game-container">
+  <div class="health-wrapper">
+    <div class="health-label">ШКАЛА ЗДОРОВЬЯ</div>
+    <div class="health-bar">
+      <div class="health-fill" id="health-fill"></div>
+      <div class="health-percent" id="health-percent">0%</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn" id="btn-pray" onclick="doAction('pray')">🙏 Молитва</button>
+    <button class="btn" id="btn-water" onclick="doAction('water')">💧 Холодная вода</button>
+    <button class="btn" id="btn-miracle" onclick="doAction('miracle')">✨ Чудо</button>
+  </div>
+</div>
+
+<!-- ФИНАЛЬНЫЙ ЭКРАН -->
+<div id="win-screen" style="background-image: url('img1.jpg');">
+  <div class="win-overlay"></div>
+  <div class="final-text">Чудо Совершилось!<br>Появился Ребенок</div>
+  <div class="final-sub">PS с Любовью</div>
+  <button class="restart-btn" onclick="location.reload()">ИГРАТЬ СНОВА</button>
+</div>
+
+<script>
+  const bgMusic = document.getElementById('bgMusic');
+  bgMusic.volume = 0.4;
+
+  let progress = 0;
+  const maxProgress = 3;
+  let actionsDone = { pray: false, water: false, miracle: false };
+
+  // Запуск музыки при первом взаимодействии
+  function initAudio() {
+    if (bgMusic.paused) {
+      bgMusic.play().catch(e => console.log("Музыка заблокирована:", e));
+    }
+  }
+  document.body.addEventListener('click', initAudio, { once: true });
+  document.body.addEventListener('touchstart', initAudio, { once: true });
+
+  function doAction(type) {
+    if (actionsDone[type]) return;
+
+    actionsDone[type] = true;
+    progress++;
+
+    // Обновляем кнопку
+    const btn = document.getElementById('btn-' + type);
+    btn.classList.add('done');
+    btn.innerText = '✅ ' + btn.innerText.split(' ')[1];
+
+    // Обновляем шкалу
+    const percent = Math.round((progress / maxProgress) * 100);
+    document.getElementById('health-fill').style.width = percent + '%';
+    document.getElementById('health-percent').innerText = percent + '%';
+
+    // Если все 3 действия выполнены
+    if (progress >= maxProgress) {
+      triggerMiracle();
+    }
+  }
+
+  function triggerMiracle() {
+    // Создаем эффект появления ребенка
+    const baby = document.createElement('div');
+    baby.className = 'baby-pop';
+    baby.innerText = '👶✨';
+    document.body.appendChild(baby);
+
+    // Через 2.5 секунды (после анимации) показываем финальный экран
+    setTimeout(() => {
+      document.getElementById('game-container').style.opacity = '0';
+      
+      setTimeout(() => {
+        document.getElementById('game-container').style.display = 'none';
+        const winScreen = document.getElementById('win-screen');
+        winScreen.classList.add('active');
+        
+        // Запускаем ангелов
+        setInterval(() => {
+          const a = document.createElement('div');
+          a.className = 'angel';
+          a.innerText = Math.random() > 0.5 ? '👼' : '💖';
+          a.style.left = Math.random() * 100 + 'vw';
+          a.style.animationDuration = (3 + Math.random() * 2) + 's';
+          winScreen.appendChild(a);
+          setTimeout(() => a.remove(), 5000);
+        }, 300);
+      }, 1000);
+
+    }, 2500);
+  }
+
+  // Запрет масштабирования
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+</script>
+</body>
+</html>
